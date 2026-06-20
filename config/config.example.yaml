@@ -1,0 +1,113 @@
+# teeFinder configuration. Copy to config/config.yaml and edit.
+# Secrets (the Gmail app password) live in .env, NOT here.
+
+global:
+  # How often the daemon scrapes (also used as the Task Scheduler/cron cadence).
+  scrape_interval_minutes: 15
+  # Club-local timezone; tee time hours are interpreted in this zone.
+  timezone: Australia/Sydney
+  # How far ahead to look. MiClub sites list tee times months out, so this
+  # caps the scrape depth instead of chasing every future day.
+  lookahead_weeks: 12
+  # SQLite database file (created automatically).
+  database_path: ./data/teefinder.db
+
+email:
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  username: you@gmail.com
+  from_address: you@gmail.com
+  # Name of the env var holding the Gmail App Password (default shown).
+  password_env: GMAIL_APP_PASSWORD
+
+clubs:
+  # A real MiClub club. `url` is the public CALENDAR page; the scraper pages it
+  # ~6 days at a time and only deep-fetches timesheets for days that are open.
+  - id: wakehurst
+    name: "Wakehurst Golf Club"
+    platform: miclub
+    url: "https://www.wakehurstgolf.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      # The course/resource id. Read from the url above if omitted.
+      booking_resource_id: 3000000
+      # Optional: only these fee groups (e.g. 18-hole). Omit for all.
+      # fee_group_ids: [1510657214]
+
+  # Another MiClub club — same adapter, just a different url/resource id.
+  - id: northbridge
+    name: "Northbridge Golf Club"
+    platform: miclub
+    url: "https://northbridge.miclub.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+      # Optional: limit to the 18-hole fee group.
+      # fee_group_ids: [132857]
+
+  # Another MiClub club. This one splits each day across several 18-hole fee
+  # groups (sessions / pricing tiers); the adapter scrapes every fee group and
+  # merges them by tee time, so the full day is captured with no extra config.
+  - id: eastlake
+    name: "Eastlake Golf Club"
+    platform: miclub
+    url: "https://www.eastlakegolfclub.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  # Note the different resource id (3050007) — set it in options or leave it in
+  # the url; the adapter reads it from either.
+  - id: moorepark
+    name: "Moore Park Golf Club"
+    platform: miclub
+    url: "https://moorepark.miclub.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3050007"
+    options:
+      booking_resource_id: 3050007
+
+  - id: strathfield
+    name: "Strathfield Golf Club"
+    platform: miclub
+    url: "https://www.strathfieldgolf.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  - id: northryde
+    name: "North Ryde Golf Club"
+    platform: miclub
+    url: "https://northryde.miclub.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  # An offline example for local testing — the `fixture` scraper reads tee
+  # times from a local JSON file instead of the network.
+  - id: demo
+    name: "Demo Club (offline fixture)"
+    platform: fixture
+    url: "./tests/fixtures/demo_slots.json"
+    options: {}
+
+users:
+  - name: Ted
+    email: ted@example.com
+    # Omit `clubs` (or leave empty) to subscribe to every club.
+    clubs: [wakehurst, northbridge, eastlake, moorepark, strathfield, northryde, demo]
+    # Only alert when a tee time has at least this many open spots (1-4).
+    # Default is 1. Set to 2 to ignore single-spot openings, etc.
+    min_players: 2
+    preferences:
+      # Weekend mornings...
+      - days: [Saturday, Sunday]
+        time_ranges:
+          - { start: "06:00", end: "10:00" }
+      # ...and a Wednesday afternoon hit-out.
+      - days: [Wednesday]
+        time_ranges:
+          - { start: "15:00", end: "18:00" }
+
+  - name: Alex
+    email: alex@example.com
+    clubs: [demo]
+    # Alex is happy to grab even a single open spot.
+    min_players: 1
+    preferences:
+      - days: [Saturday]
+        time_ranges:
+          - { start: "07:00", end: "12:00" }

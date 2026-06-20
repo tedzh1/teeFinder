@@ -1,0 +1,33 @@
+"""Filter new tee times down to what each user actually wants.
+
+A tee time matches a user when the user is subscribed to its club, has at least
+the user's required minimum open spots, AND falls on one of the user's chosen
+weekdays within one of that day's time ranges.
+"""
+
+from __future__ import annotations
+
+from teefinder.config import UserConfig
+from teefinder.models import TeeTime
+
+
+def matches_user(tee: TeeTime, user: UserConfig) -> bool:
+    if not user.subscribed_to(tee.club_id):
+        return False
+    # Too few open spots for what the user needs. If the site doesn't expose a
+    # count (None), we keep the slot rather than risk hiding a real opening.
+    if tee.players_available is not None and tee.players_available < user.min_players:
+        return False
+    for pref in user.preferences:
+        if tee.weekday not in pref.days:
+            continue
+        if any(tr.contains(tee.time) for tr in pref.time_ranges):
+            return True
+    return False
+
+
+def matches_for_user(tee_times: list[TeeTime], user: UserConfig) -> list[TeeTime]:
+    """All tee times (from any club) that match a single user's preferences."""
+    matched = [t for t in tee_times if matches_user(t, user)]
+    matched.sort(key=lambda t: (t.date, t.time, t.club_id))
+    return matched
