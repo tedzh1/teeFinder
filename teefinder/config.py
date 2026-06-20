@@ -73,6 +73,9 @@ class WebConfig(BaseModel):
     base_url: str = "http://localhost:8000"
     host: str = "127.0.0.1"
     port: int = 8000
+    # Mark session cookies Secure (HTTPS-only). Turn on when served over HTTPS
+    # (e.g. behind a Cloudflare tunnel or TLS reverse proxy).
+    secure_cookies: bool = False
 
     @property
     def dashboard_url(self) -> str:

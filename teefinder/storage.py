@@ -72,6 +72,8 @@ class Storage:
         self.conn.execute("PRAGMA foreign_keys = ON")
         # WAL lets the web process read while the scraper writes.
         self.conn.execute("PRAGMA journal_mode = WAL")
+        # Wait up to 5s for a lock instead of erroring (web + scraper share the file).
+        self.conn.execute("PRAGMA busy_timeout = 5000")
         self.conn.executescript(_SCHEMA)
         self.conn.commit()
 

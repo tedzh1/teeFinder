@@ -42,7 +42,7 @@ def create_app(config: Config) -> FastAPI:
         SessionMiddleware,
         secret_key=_session_secret(),
         same_site="lax",
-        https_only=False,
+        https_only=config.web.secure_cookies,
     )
 
     app.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")

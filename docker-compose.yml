@@ -1,0 +1,40 @@
+# teeFinder local stack: web app + scraper + a Cloudflare quick tunnel.
+#
+#   docker compose up -d --build
+#   docker compose logs -f cloudflared   # grab the public https://<...>.trycloudflare.com URL
+#
+# Put that URL into config/config.yaml as web.base_url (for email links) and set
+# web.secure_cookies: true (the tunnel serves HTTPS), then `docker compose up -d`.
+#
+# Requires: config/config.yaml and .env (GMAIL_APP_PASSWORD, TEEFINDER_SECRET_KEY).
+
+services:
+  web:
+    build: .
+    command: ["teefinder", "web", "--host", "0.0.0.0", "--port", "8000"]
+    env_file: .env
+    volumes:
+      - ./config:/app/config:ro
+      - tee-data:/app/data
+    ports:
+      - "8000:8000"          # also reachable locally at http://localhost:8000
+    restart: unless-stopped
+
+  scraper:
+    build: .
+    command: ["teefinder", "daemon"]
+    env_file: .env
+    volumes:
+      - ./config:/app/config:ro
+      - tee-data:/app/data    # same volume as web -> shared SQLite DB
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: ["tunnel", "--no-autoupdate", "--url", "http://web:8000"]
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  tee-data:

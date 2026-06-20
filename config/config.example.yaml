@@ -22,9 +22,13 @@ email:
 
 web:
   # Public base URL of the web app — used to build the dashboard link in emails.
+  # Behind a Cloudflare tunnel, set this to the https://<...>.trycloudflare.com URL.
   base_url: "http://localhost:8000"
   host: "127.0.0.1"
   port: 8000
+  # Set true when served over HTTPS (e.g. via the Cloudflare tunnel) so session
+  # cookies are marked Secure. Leave false for plain-HTTP localhost.
+  secure_cookies: false
 
 clubs:
   # A real MiClub club. `url` is the public CALENDAR page; the scraper pages it

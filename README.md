@@ -68,6 +68,36 @@ links to this dashboard.
 Accounts and preferences live in the **database** (managed via the web app), so
 the scraper reads its user list from there — not from the YAML.
 
+## Running with Docker + a Cloudflare tunnel
+
+[docker-compose.yml](docker-compose.yml) runs three containers — the **web** app,
+the **scraper** daemon (sharing one SQLite volume), and **cloudflared**, which
+publishes a free HTTPS URL via a Cloudflare *quick tunnel* (no domain, no router
+port-forwarding, no exposed home IP).
+
+```bash
+cp .env.example .env                                 # set GMAIL_APP_PASSWORD + TEEFINDER_SECRET_KEY
+cp config/config.example.yaml config/config.yaml     # set your clubs
+
+docker compose up -d --build
+docker compose logs -f cloudflared                   # note the https://<...>.trycloudflare.com URL
+```
+
+Then put that URL into `config/config.yaml` as `web.base_url` (so email links
+point at it) and set `web.secure_cookies: true`, and reload:
+
+```bash
+docker compose up -d
+```
+
+Open the tunnel URL and register. The quick-tunnel URL changes each time
+`cloudflared` restarts — fine for testing; for a stable hostname use a named
+Cloudflare tunnel (needs a Cloudflare account + domain) or move to a server.
+
+> Notes: the app is reachable at `http://localhost:8000` on the host too. The
+> known simplifications (no CSRF tokens, no password reset, no rate-limiting)
+> matter more once the URL is public — harden before sharing widely.
+
 ## Configuration
 
 See [config/config.example.yaml](config/config.example.yaml). The YAML holds

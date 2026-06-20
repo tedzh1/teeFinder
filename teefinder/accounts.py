@@ -95,6 +95,8 @@ class UserStore:
         self.conn.row_factory = sqlite3.Row
         # WAL lets the web process and the scraper share the DB concurrently.
         self.conn.execute("PRAGMA journal_mode = WAL")
+        # Wait up to 5s for a lock instead of erroring (web + scraper share the file).
+        self.conn.execute("PRAGMA busy_timeout = 5000")
         self.conn.executescript(_SCHEMA)
         self.conn.commit()
 

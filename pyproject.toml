@@ -35,5 +35,10 @@ teefinder = "teefinder.cli:app"
 [tool.setuptools.packages.find]
 include = ["teefinder*"]
 
+[tool.setuptools.package-data]
+# Ship the web templates and static assets with the installed package so the
+# app works from a normal (non-editable) install, e.g. inside a Docker image.
+"teefinder.web" = ["templates/*.html", "static/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
