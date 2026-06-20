@@ -40,9 +40,16 @@ def _format_slot(tee: TeeTime) -> str:
 
 
 def build_digest(
-    user: UserConfig, tee_times: list[TeeTime], club_names: dict[str, str]
+    user: UserConfig,
+    tee_times: list[TeeTime],
+    club_names: dict[str, str],
+    dashboard_url: str | None = None,
 ) -> tuple[str, str, str]:
-    """Return (subject, plain_text, html) for a user's matched tee times."""
+    """Return (subject, plain_text, html) for a user's matched tee times.
+
+    When ``dashboard_url`` is given, a link to the web view of all matching
+    tee times is appended to both bodies.
+    """
     by_club: dict[str, list[TeeTime]] = defaultdict(list)
     for t in tee_times:
         by_club[t.club_id].append(t)
@@ -64,6 +71,13 @@ def build_digest(
             html_parts.append(f"<li>{_html_slot(tee)}</li>")
         text_lines.append("")
         html_parts.append("</ul>")
+
+    if dashboard_url:
+        text_lines.append(f"See all your matching tee times: {dashboard_url}")
+        html_parts.append(
+            f'<p><a href="{dashboard_url}">See all your matching tee times</a></p>'
+        )
+
     text_lines.append("— teeFinder")
     html_parts.append("<p>— teeFinder</p>")
 

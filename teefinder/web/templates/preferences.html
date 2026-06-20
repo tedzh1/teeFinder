@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Preferences · teeFinder{% endblock %}
+{% block content %}
+<h1>Your preferences</h1>
+{% if saved %}<p class="success">Preferences saved.</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<form method="post" action="/preferences">
+  <div class="card">
+    <h2>Profile</h2>
+    <label>Display name
+      <input type="text" name="name" value="{{ user.name }}" required>
+    </label>
+    <label>Minimum open spots to alert on
+      <select name="min_players">
+        {% for n in [1, 2, 3, 4] %}
+        <option value="{{ n }}" {% if n == min_players %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+      <small class="muted">Tee times with fewer open spots than this are ignored.</small>
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>Clubs</h2>
+    <p class="muted">Tick the clubs you want to watch. Leave all unticked to watch every club.</p>
+    <div class="checkgrid">
+      {% for club in clubs %}
+      <label class="check">
+        <input type="checkbox" name="clubs" value="{{ club.id }}" {% if club.id in selected_clubs %}checked{% endif %}>
+        {{ club.name }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>When you want to play</h2>
+    <p class="muted">Each row is a set of days plus a time window. A tee time alerts
+    you if it falls on any row's days within that row's time window. Leave a row blank to ignore it.</p>
+    {% for row in rows %}
+    {% set ri = loop.index0 %}
+    <div class="prefrow">
+      <div class="days">
+        {% for wd in weekdays %}
+        <label class="check">
+          <input type="checkbox" name="days_{{ ri }}" value="{{ wd }}"
+                 {% if loop.index0 in row.days %}checked{% endif %}>
+          {{ wd[:3] }}
+        </label>
+        {% endfor %}
+      </div>
+      <div class="times">
+        from <input type="time" name="start_{{ ri }}" value="{{ row.start }}">
+        to <input type="time" name="end_{{ ri }}" value="{{ row.end }}">
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <button type="submit" class="primary">Save preferences</button>
+</form>
+{% endblock %}

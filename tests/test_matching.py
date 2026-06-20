@@ -1,8 +1,9 @@
 import datetime as dt
 
-from teefinder.config import Preference, UserConfig
-from teefinder.matching import matches_for_user, matches_user
-from teefinder.models import TeeTime
+from teefinder.config import Config, Preference, UserConfig
+from teefinder.matching import available_matching_for_user, matches_for_user, matches_user
+from teefinder.models import Snapshot, TeeTime
+from teefinder.storage import Storage
 
 # 2026-06-27 is a Saturday; 2026-06-24 is a Wednesday; 2026-06-29 is a Monday.
 SAT = dt.date(2026, 6, 27)
@@ -96,3 +97,39 @@ def test_min_players_validated_between_one_and_four():
         _user(min_players=0)
     with pytest.raises(Exception):
         _user(min_players=5)
+
+
+def test_available_matching_for_user_uses_latest_snapshots(tmp_path):
+    cfg = Config.model_validate(
+        {
+            "global": {"scrape_interval_minutes": 5, "database_path": str(tmp_path / "tf.db")},
+            "email": {"username": "a@b.com", "from_address": "a@b.com"},
+            "clubs": [
+                {"id": "club-a", "name": "A", "platform": "fixture", "url": "x"},
+                {"id": "club-b", "name": "B", "platform": "fixture", "url": "y"},
+            ],
+        }
+    )
+    user = _user(clubs=["club-a"])  # subscribed only to club-a, Sat 06-10 / Wed 15-18
+
+    with Storage(tmp_path / "tf.db") as storage:
+        # club-a: one matching (Sat 07:30) + one not (Sat 12:00) + one full (Sat 08:00, 0 spots)
+        storage.save_snapshot(Snapshot(
+            club_id="club-a",
+            scraped_at=dt.datetime(2026, 6, 20, tzinfo=dt.timezone.utc),
+            tee_times=[
+                _tee(SAT, "07:30", club="club-a", players_available=2),
+                _tee(SAT, "12:00", club="club-a", players_available=2),
+                _tee(SAT, "08:00", club="club-a", players_available=0),
+            ],
+        ))
+        # club-b would match on time/day but the user isn't subscribed to it.
+        storage.save_snapshot(Snapshot(
+            club_id="club-b",
+            scraped_at=dt.datetime(2026, 6, 20, tzinfo=dt.timezone.utc),
+            tee_times=[_tee(SAT, "07:30", club="club-b", players_available=2)],
+        ))
+
+        result = available_matching_for_user(cfg, storage, user)
+
+    assert [(t.club_id, t.time.strftime("%H:%M")) for t in result] == [("club-a", "07:30")]

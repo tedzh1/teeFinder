@@ -20,6 +20,12 @@ email:
   # Name of the env var holding the Gmail App Password (default shown).
   password_env: GMAIL_APP_PASSWORD
 
+web:
+  # Public base URL of the web app — used to build the dashboard link in emails.
+  base_url: "http://localhost:8000"
+  host: "127.0.0.1"
+  port: 8000
+
 clubs:
   # A real MiClub club. `url` is the public CALENDAR page; the scraper pages it
   # ~6 days at a time and only deep-fetches timesheets for days that are open.
@@ -84,30 +90,22 @@ clubs:
     url: "./tests/fixtures/demo_slots.json"
     options: {}
 
-users:
-  - name: Ted
-    email: ted@example.com
-    # Omit `clubs` (or leave empty) to subscribe to every club.
-    clubs: [wakehurst, northbridge, eastlake, moorepark, strathfield, northryde, demo]
-    # Only alert when a tee time has at least this many open spots (1-4).
-    # Default is 1. Set to 2 to ignore single-spot openings, etc.
-    min_players: 2
-    preferences:
-      # Weekend mornings...
-      - days: [Saturday, Sunday]
-        time_ranges:
-          - { start: "06:00", end: "10:00" }
-      # ...and a Wednesday afternoon hit-out.
-      - days: [Wednesday]
-        time_ranges:
-          - { start: "15:00", end: "18:00" }
-
-  - name: Alex
-    email: alex@example.com
-    clubs: [demo]
-    # Alex is happy to grab even a single open spot.
-    min_players: 1
-    preferences:
-      - days: [Saturday]
-        time_ranges:
-          - { start: "07:00", end: "12:00" }
+# Users are now managed through the web app (register at /register, then set
+# preferences). They live in the database, not here.
+#
+# The block below is OPTIONAL and only read by `teefinder seed-users`, a one-off
+# helper that imports these into the DB (each gets a random temporary password,
+# printed by the command). Leave it commented out unless you want to seed.
+#
+# users:
+#   - name: Ted
+#     email: ted@example.com
+#     clubs: [wakehurst, northbridge, eastlake, moorepark, strathfield, northryde, demo]
+#     min_players: 2
+#     preferences:
+#       - days: [Saturday, Sunday]
+#         time_ranges:
+#           - { start: "06:00", end: "10:00" }
+#       - days: [Wednesday]
+#         time_ranges:
+#           - { start: "15:00", end: "18:00" }

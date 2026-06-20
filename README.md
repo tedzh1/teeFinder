@@ -28,26 +28,53 @@ cp config/config.example.yaml config/config.yaml   # then edit clubs/users
 Generate a Gmail **App Password** (requires 2FA) at
 <https://myaccount.google.com/apppasswords> and put it in `.env` as `GMAIL_APP_PASSWORD`.
 
-## Usage
+Also set `TEEFINDER_SECRET_KEY` in `.env` (used to sign web sessions):
 
 ```bash
-teefinder validate                 # check config, list clubs/users
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+## Usage
+
+The scraper and the web frontend are **two separate processes** sharing one
+SQLite database.
+
+```bash
+# Scraper
+teefinder validate                 # check config, list clubs + registered users
 teefinder run --dry-run            # one cycle; log emails instead of sending
 teefinder run                      # one cycle; send real emails
-teefinder run --club club-a        # scrape a single club
+teefinder run --club wakehurst     # scrape a single club
 teefinder test-email               # send a test email to confirm SMTP works
 teefinder daemon                   # run continuously on the configured interval
+
+# Web app (registration, preferences, tee-time dashboard)
+teefinder web                      # serve at web.host:web.port (default :8000)
+teefinder seed-users               # optional: import any YAML `users:` into the DB
 ```
 
 The same `teefinder run` command is what you point Windows Task Scheduler / cron /
 a cloud scheduler at when you move off your local machine.
 
+## Web frontend
+
+Run `teefinder web` and open <http://localhost:8000>. Users **register** with an
+email + password, then set their own configuration on the **Preferences** page
+(which clubs, day-of-week + time windows, and minimum open spots). The
+**Dashboard** shows every currently-available tee time matching their
+preferences, taken from the latest scrape in the database. Each alert email also
+links to this dashboard.
+
+Accounts and preferences live in the **database** (managed via the web app), so
+the scraper reads its user list from there — not from the YAML.
+
 ## Configuration
 
-See [config/config.example.yaml](config/config.example.yaml). Global settings
-(scrape interval, lookahead horizon, timezone, db path), the list of `clubs`, and
-the list of `users` (each with their own email + day/time preferences) all live there.
-Secrets (the Gmail app password) live in `.env`, never in the YAML.
+See [config/config.example.yaml](config/config.example.yaml). The YAML holds
+**operator-managed** settings only: global options (scrape interval, lookahead
+horizon, timezone, db path), the `web` block (base URL/host/port), and the list
+of `clubs`. **Users are managed through the web app**, not the YAML. Secrets (the
+Gmail app password, the session secret) live in `.env`, never in the YAML.
 
 ## Adding a new club / booking platform
 

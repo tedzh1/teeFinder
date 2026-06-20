@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Tee times · teeFinder{% endblock %}
+{% block content %}
+<h1>Available tee times</h1>
+<p class="muted">
+  {{ count }} tee time{{ '' if count == 1 else 's' }} match your preferences right now.
+  <a href="/preferences">Adjust preferences</a>
+</p>
+
+{% if not groups %}
+  <div class="card">
+    <p>No matching tee times in the latest snapshot. This could mean nothing is
+    currently available in your chosen days/times, or the scraper hasn't run yet.</p>
+  </div>
+{% endif %}
+
+{% for club_name, slots in groups %}
+<div class="card">
+  <h2>{{ club_name }}</h2>
+  <table class="slots">
+    <thead>
+      <tr><th>Day</th><th>Date</th><th>Time</th><th>Spots</th><th>Price</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for s in slots %}
+      <tr>
+        <td>{{ day_names[s.weekday] }}</td>
+        <td>{{ s.date }}</td>
+        <td>{{ s.time.strftime('%H:%M') }}</td>
+        <td>{{ s.players_available if s.players_available is not none else '—' }}</td>
+        <td>{{ s.price or '—' }}</td>
+        <td>{% if s.booking_url %}<a class="book" href="{{ s.booking_url }}" target="_blank" rel="noopener">Book</a>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+{% endblock %}

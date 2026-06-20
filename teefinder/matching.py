@@ -31,3 +31,20 @@ def matches_for_user(tee_times: list[TeeTime], user: UserConfig) -> list[TeeTime
     matched = [t for t in tee_times if matches_user(t, user)]
     matched.sort(key=lambda t: (t.date, t.time, t.club_id))
     return matched
+
+
+def available_matching_for_user(config, storage, user: UserConfig) -> list[TeeTime]:
+    """Currently-available tee times matching a user, from the latest snapshots.
+
+    Unlike the alert path (which only surfaces *newly* released slots), this
+    returns everything bookable right now across the user's subscribed clubs —
+    powering the web dashboard. Reuses ``matches_for_user`` for the filtering.
+    """
+    available: list[TeeTime] = []
+    for club in config.clubs:
+        if not user.subscribed_to(club.id):
+            continue
+        snapshot = storage.latest_snapshot(club.id)
+        if snapshot is not None:
+            available.extend(snapshot.available())
+    return matches_for_user(available, user)

@@ -15,15 +15,10 @@ import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Monday=0 .. Sunday=6 to match datetime.date.weekday()
-_WEEKDAYS = {
-    "monday": 0,
-    "tuesday": 1,
-    "wednesday": 2,
-    "thursday": 3,
-    "friday": 4,
-    "saturday": 5,
-    "sunday": 6,
-}
+WEEKDAY_NAMES = [
+    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+]
+_WEEKDAYS = {name.lower(): i for i, name in enumerate(WEEKDAY_NAMES)}
 
 _ENV_PATTERN = re.compile(r"\$\{([A-Z0-9_]+)\}")
 
@@ -71,6 +66,17 @@ class EmailConfig(BaseModel):
                 "Add it to your .env file."
             )
         return pw
+
+
+class WebConfig(BaseModel):
+    # Public base URL of the web app, used in email links. No trailing slash.
+    base_url: str = "http://localhost:8000"
+    host: str = "127.0.0.1"
+    port: int = 8000
+
+    @property
+    def dashboard_url(self) -> str:
+        return f"{self.base_url.rstrip('/')}/dashboard"
 
 
 class ClubConfig(BaseModel):
@@ -139,8 +145,11 @@ class UserConfig(BaseModel):
 class Config(BaseModel):
     global_: GlobalConfig = Field(alias="global")
     email: EmailConfig
+    web: WebConfig = Field(default_factory=WebConfig)
     clubs: list[ClubConfig]
-    users: list[UserConfig]
+    # Users now live in the database (managed via the web app). This is kept
+    # optional only for `seed-users` (importing example users) / back-compat.
+    users: list[UserConfig] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
 

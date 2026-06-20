@@ -1,6 +1,7 @@
 import json
 
-from teefinder.config import Config
+from teefinder.accounts import UserStore
+from teefinder.config import Config, UserConfig
 from teefinder.notifier import EmailNotifier
 from teefinder.runner import run_cycle
 from teefinder.storage import Storage
@@ -17,24 +18,30 @@ class RecordingNotifier(EmailNotifier):
 
 
 def _config(fixture_path, db_path):
-    # 2026-06-27 is a Saturday -> matches the user's Saturday morning window.
     return Config.model_validate(
         {
             "global": {"scrape_interval_minutes": 5, "lookahead_weeks": 520, "database_path": str(db_path)},
             "email": {"username": "a@b.com", "from_address": "a@b.com"},
+            "web": {"base_url": "https://tee.example.com"},
             "clubs": [{"id": "demo", "name": "Demo", "platform": "fixture", "url": str(fixture_path)}],
-            "users": [
-                {
-                    "name": "Ted",
-                    "email": "ted@example.com",
-                    "clubs": ["demo"],
-                    "preferences": [
-                        {"days": ["Saturday"], "time_ranges": [{"start": "06:00", "end": "10:00"}]}
-                    ],
-                }
-            ],
         }
     )
+
+
+def _users():
+    # 2026-06-27 is a Saturday -> matches this user's Saturday-morning window.
+    return [
+        UserConfig.model_validate(
+            {
+                "name": "Ted",
+                "email": "ted@example.com",
+                "clubs": ["demo"],
+                "preferences": [
+                    {"days": ["Saturday"], "time_ranges": [{"start": "06:00", "end": "10:00"}]}
+                ],
+            }
+        )
+    ]
 
 
 def _write_slots(path, slots):
@@ -45,12 +52,13 @@ def test_full_pipeline_baseline_then_new_then_dedup(tmp_path):
     fixture = tmp_path / "slots.json"
     db = tmp_path / "tf.db"
     cfg = _config(fixture, db)
+    users = _users()
 
     # 1) Baseline run: one slot exists, but first run never alerts.
     _write_slots(fixture, [{"date": "2026-06-27", "time": "07:30", "players_available": 2}])
     notifier = RecordingNotifier()
     with Storage(db) as storage:
-        summary = run_cycle(cfg, storage, notifier)
+        summary = run_cycle(cfg, storage, notifier, users=users)
     assert summary["emails_sent"] == 0
     assert notifier.sent == []
 
@@ -64,15 +72,17 @@ def test_full_pipeline_baseline_then_new_then_dedup(tmp_path):
     )
     notifier = RecordingNotifier()
     with Storage(db) as storage:
-        summary = run_cycle(cfg, storage, notifier)
+        summary = run_cycle(cfg, storage, notifier, users=users)
     assert summary["new_availabilities"] == 1
     assert summary["emails_sent"] == 1
     assert "08:10" in notifier.sent[0][2]
+    # The digest links to the dashboard.
+    assert "https://tee.example.com/dashboard" in notifier.sent[0][2]
 
     # 3) Nothing changes -> no re-alert (snapshot diff + sent_alerts dedup).
     notifier = RecordingNotifier()
     with Storage(db) as storage:
-        summary = run_cycle(cfg, storage, notifier)
+        summary = run_cycle(cfg, storage, notifier, users=users)
     assert summary["emails_sent"] == 0
 
 
@@ -80,10 +90,11 @@ def test_slot_outside_user_window_does_not_alert(tmp_path):
     fixture = tmp_path / "slots.json"
     db = tmp_path / "tf.db"
     cfg = _config(fixture, db)
+    users = _users()
 
     _write_slots(fixture, [{"date": "2026-06-27", "time": "07:30", "players_available": 2}])
     with Storage(db) as storage:
-        run_cycle(cfg, storage, RecordingNotifier())  # baseline
+        run_cycle(cfg, storage, RecordingNotifier(), users=users)  # baseline
 
     # New slot at 14:00 Saturday — outside the 06:00-10:00 window.
     _write_slots(
@@ -95,6 +106,43 @@ def test_slot_outside_user_window_does_not_alert(tmp_path):
     )
     notifier = RecordingNotifier()
     with Storage(db) as storage:
-        summary = run_cycle(cfg, storage, notifier)
+        summary = run_cycle(cfg, storage, notifier, users=users)
     assert summary["new_availabilities"] == 1  # detected at club level
     assert summary["emails_sent"] == 0          # but no user wanted it
+
+
+def test_run_cycle_reads_users_from_database(tmp_path):
+    """With no explicit users, the runner alerts accounts stored in the DB."""
+    fixture = tmp_path / "slots.json"
+    db = tmp_path / "tf.db"
+    cfg = _config(fixture, db)
+
+    # Register a DB user (source of truth) subscribed to demo, Saturday mornings.
+    store = UserStore(db)
+    store.create_user("dbuser@example.com", "pw12345678", "DB User")
+    uid = store.id_for_email("dbuser@example.com")
+    store.update_profile(
+        uid,
+        name="DB User",
+        min_players=1,
+        clubs=["demo"],
+        preferences=[{"days": ["Saturday"], "time_ranges": [{"start": "06:00", "end": "10:00"}]}],
+    )
+    store.close()
+
+    _write_slots(fixture, [{"date": "2026-06-27", "time": "07:30", "players_available": 2}])
+    with Storage(db) as storage:
+        run_cycle(cfg, storage, RecordingNotifier())  # baseline, users from DB
+
+    _write_slots(
+        fixture,
+        [
+            {"date": "2026-06-27", "time": "07:30", "players_available": 2},
+            {"date": "2026-06-27", "time": "08:10", "players_available": 4},
+        ],
+    )
+    notifier = RecordingNotifier()
+    with Storage(db) as storage:
+        summary = run_cycle(cfg, storage, notifier)  # users loaded from DB
+    assert summary["emails_sent"] == 1
+    assert notifier.sent[0][0] == "dbuser@example.com"

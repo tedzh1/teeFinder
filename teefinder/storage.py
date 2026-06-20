@@ -64,9 +64,14 @@ class Storage:
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(self.db_path)
+        # check_same_thread=False: the web app may open a connection in a worker
+        # thread and use it in the event-loop thread within one request (each
+        # request uses its own connection sequentially, so this is safe).
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
+        # WAL lets the web process read while the scraper writes.
+        self.conn.execute("PRAGMA journal_mode = WAL")
         self.conn.executescript(_SCHEMA)
         self.conn.commit()
 
