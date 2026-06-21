@@ -36,8 +36,10 @@
 
   <div class="card">
     <h2>When you want to play</h2>
-    <p class="muted">Each row is a set of days plus a time window. A tee time alerts
-    you if it falls on any row's days within that row's time window. Leave a row blank to ignore it.</p>
+    <p class="muted">Each row is a set of days plus a time window, and an optional
+    date range. A tee time alerts you if it falls on any row's days, within that
+    row's time window, and (if set) inside its date range. Leave the dates blank to
+    match any date; leave a whole row blank to ignore it.</p>
     {% for row in rows %}
     {% set ri = loop.index0 %}
     <div class="prefrow">
@@ -53,6 +55,10 @@
       <div class="times">
         from <input type="time" name="start_{{ ri }}" value="{{ row.start }}">
         to <input type="time" name="end_{{ ri }}" value="{{ row.end }}">
+      </div>
+      <div class="dates">
+        dates <input type="date" name="start_date_{{ ri }}" value="{{ row.start_date }}">
+        to <input type="date" name="end_date_{{ ri }}" value="{{ row.end_date }}">
       </div>
     </div>
     {% endfor %}

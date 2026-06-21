@@ -66,6 +66,28 @@ def test_update_profile_validates_and_persists(tmp_path):
     assert reloaded.preferences[0].days == [5, 6]
 
 
+def test_update_profile_round_trips_date_range(tmp_path):
+    store = _store(tmp_path)
+    store.create_user("a@b.com", "pw12345678", "Alex")
+    uid = store.id_for_email("a@b.com")
+    store.update_profile(
+        uid,
+        name="Alex",
+        min_players=1,
+        clubs=[],
+        preferences=[{
+            "days": ["Saturday"],
+            "time_ranges": [{"start": "06:00", "end": "10:00"}],
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-31",
+        }],
+    )
+    reloaded = UserStore(tmp_path / "tf.db").get_by_email("a@b.com")
+    pref = reloaded.preferences[0]
+    assert pref.start_date == dt.date(2026, 7, 1)
+    assert pref.end_date == dt.date(2026, 7, 31)
+
+
 def test_update_profile_rejects_invalid_input(tmp_path):
     store = _store(tmp_path)
     store.create_user("a@b.com", "pw12345678", "A")

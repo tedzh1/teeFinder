@@ -187,9 +187,13 @@ clubs:
 #     clubs: [wakehurst, northbridge, eastlake, moorepark, strathfield, northryde, demo]
 #     min_players: 2
 #     preferences:
+#       # Each block has days + time window(s), plus an OPTIONAL date range
+#       # (start_date / end_date, inclusive; omit either side for open-ended).
 #       - days: [Saturday, Sunday]
 #         time_ranges:
 #           - { start: "06:00", end: "10:00" }
-#       - days: [Wednesday]
+#         start_date: "2026-07-01"   # optional; e.g. only the July school holidays
+#         end_date: "2026-07-31"     # optional
+#       - days: [Wednesday]          # no dates -> matches any date
 #         time_ranges:
 #           - { start: "15:00", end: "18:00" }

@@ -55,10 +55,12 @@ def _prefs_to_rows(user: UserConfig) -> list[dict]:
                     "days": list(pref.days),
                     "start": tr.start.strftime("%H:%M"),
                     "end": tr.end.strftime("%H:%M"),
+                    "start_date": pref.start_date.isoformat() if pref.start_date else "",
+                    "end_date": pref.end_date.isoformat() if pref.end_date else "",
                 }
             )
     while len(rows) < MAX_PREF_ROWS:
-        rows.append({"days": [], "start": "", "end": ""})
+        rows.append({"days": [], "start": "", "end": "", "start_date": "", "end_date": ""})
     return rows[:MAX_PREF_ROWS]
 
 
@@ -105,12 +107,19 @@ async def preferences_save(
         day_names = form.getlist(f"days_{i}")
         start = form.get(f"start_{i}") or ""
         end = form.get(f"end_{i}") or ""
+        start_date = form.get(f"start_date_{i}") or ""
+        end_date = form.get(f"end_date_{i}") or ""
         display_rows.append(
             {"days": [WEEKDAY_NAMES.index(d) for d in day_names if d in WEEKDAY_NAMES],
-             "start": start, "end": end}
+             "start": start, "end": end, "start_date": start_date, "end_date": end_date}
         )
         if day_names and start and end:
-            rows.append({"days": day_names, "time_ranges": [{"start": start, "end": end}]})
+            rows.append({
+                "days": day_names,
+                "time_ranges": [{"start": start, "end": end}],
+                "start_date": start_date,  # "" -> None via the Preference validator
+                "end_date": end_date,
+            })
 
     try:
         min_players = int(form.get("min_players", user.min_players))

@@ -118,6 +118,10 @@ class TimeRange(BaseModel):
 class Preference(BaseModel):
     days: list[int]
     time_ranges: list[TimeRange]
+    # Optional absolute date window (inclusive). Either side may be omitted for
+    # an open-ended range; omit both to match any date.
+    start_date: dt.date | None = None
+    end_date: dt.date | None = None
 
     @field_validator("days", mode="before")
     @classmethod
@@ -133,6 +137,32 @@ class Preference(BaseModel):
                 )
             out.append(_WEEKDAYS[key])
         return out
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def _empty_date_to_none(cls, v: object) -> object:
+        # Web forms submit "" for a blank date input.
+        if v == "" or v is None:
+            return None
+        if isinstance(v, str):
+            return dt.date.fromisoformat(v)
+        return v
+
+    @model_validator(mode="after")
+    def _check_date_order(self) -> "Preference":
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError(
+                f"end_date ({self.end_date}) must not be before start_date ({self.start_date})"
+            )
+        return self
+
+    def date_in_range(self, d: dt.date) -> bool:
+        """True if date ``d`` falls within this block's window (inclusive)."""
+        if self.start_date and d < self.start_date:
+            return False
+        if self.end_date and d > self.end_date:
+            return False
+        return True
 
 
 class UserConfig(BaseModel):

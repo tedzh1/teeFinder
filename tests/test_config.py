@@ -64,6 +64,33 @@ def test_time_range_end_must_be_after_start(tmp_path):
         load_config(_write(tmp_path, bad))
 
 
+def test_preference_end_date_before_start_date_rejected():
+    from teefinder.config import Preference
+
+    with pytest.raises(Exception):
+        Preference.model_validate({
+            "days": ["Saturday"],
+            "time_ranges": [{"start": "06:00", "end": "10:00"}],
+            "start_date": "2026-07-10",
+            "end_date": "2026-07-01",
+        })
+
+
+def test_preference_parses_optional_dates():
+    import datetime as dt
+
+    from teefinder.config import Preference
+
+    p = Preference.model_validate({
+        "days": ["Saturday"],
+        "time_ranges": [{"start": "06:00", "end": "10:00"}],
+        "start_date": "2026-07-01",
+        "end_date": "",  # blank -> open ended
+    })
+    assert p.start_date == dt.date(2026, 7, 1)
+    assert p.end_date is None
+
+
 def test_env_expansion(tmp_path, monkeypatch):
     monkeypatch.setenv("CLUB_URL", "./from-env.json")
     text = VALID.replace("url: ./x.json", "url: ${CLUB_URL}")

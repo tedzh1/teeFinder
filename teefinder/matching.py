@@ -1,8 +1,9 @@
 """Filter new tee times down to what each user actually wants.
 
 A tee time matches a user when the user is subscribed to its club, has at least
-the user's required minimum open spots, AND falls on one of the user's chosen
-weekdays within one of that day's time ranges.
+the user's required minimum open spots, AND falls in one of the user's preference
+blocks — i.e. on a chosen weekday, within that block's optional date window, and
+inside one of its time ranges.
 """
 
 from __future__ import annotations
@@ -20,6 +21,8 @@ def matches_user(tee: TeeTime, user: UserConfig) -> bool:
         return False
     for pref in user.preferences:
         if tee.weekday not in pref.days:
+            continue
+        if not pref.date_in_range(tee.date):
             continue
         if any(tr.contains(tee.time) for tr in pref.time_ranges):
             return True

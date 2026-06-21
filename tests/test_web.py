@@ -126,6 +126,27 @@ def test_min_players_filter_applies_on_dashboard(client):
     assert "07:30" not in r.text
 
 
+def test_date_range_filters_dashboard(client):
+    # The seeded slot is on Saturday 2026-06-27.
+    _register(client)
+    base = {"name": "Ted", "min_players": "1", "clubs": "demo",
+            "days_0": "Saturday", "start_0": "06:00", "end_0": "10:00"}
+
+    # A July date window excludes the June slot.
+    client.post("/preferences", data={**base, "start_date_0": "2026-07-01", "end_date_0": "2026-07-31"})
+    assert "07:30" not in client.get("/dashboard").text
+
+    # A window covering late June includes it again.
+    client.post("/preferences", data={**base, "start_date_0": "2026-06-01", "end_date_0": "2026-06-30"})
+    assert "07:30" in client.get("/dashboard").text
+
+    # The form renders date inputs and prefills the saved window.
+    form = client.get("/preferences").text
+    assert 'type="date"' in form
+    assert 'value="2026-06-01"' in form
+    assert 'value="2026-06-30"' in form
+
+
 def test_invalid_preference_shows_error(client):
     _register(client)
     # end before start -> validation error surfaced, not a crash.

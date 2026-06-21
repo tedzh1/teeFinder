@@ -49,6 +49,51 @@ def test_rejects_wrong_day():
     assert matches_user(_tee(MON, "07:30"), _user()) is False
 
 
+def _date_user(start_date=None, end_date=None):
+    pref = {"days": ["Saturday"], "time_ranges": [{"start": "06:00", "end": "10:00"}]}
+    if start_date is not None:
+        pref["start_date"] = start_date
+    if end_date is not None:
+        pref["end_date"] = end_date
+    return UserConfig(name="T", email="t@e.com", preferences=[Preference.model_validate(pref)])
+
+
+# SAT = 2026-06-27
+def test_date_within_range_matches():
+    assert matches_user(_tee(SAT, "07:30"), _date_user("2026-06-01", "2026-06-30")) is True
+
+
+def test_date_before_start_rejected():
+    assert matches_user(_tee(SAT, "07:30"), _date_user(start_date="2026-07-01")) is False
+
+
+def test_date_after_end_rejected():
+    assert matches_user(_tee(SAT, "07:30"), _date_user(end_date="2026-06-20")) is False
+
+
+def test_open_ended_start_only_checks_end():
+    assert matches_user(_tee(SAT, "07:30"), _date_user(end_date="2026-06-30")) is True
+    assert matches_user(_tee(SAT, "07:30"), _date_user(end_date="2026-06-26")) is False
+
+
+def test_open_ended_end_only_checks_start():
+    assert matches_user(_tee(SAT, "07:30"), _date_user(start_date="2026-06-01")) is True
+    assert matches_user(_tee(SAT, "07:30"), _date_user(start_date="2026-06-28")) is False
+
+
+def test_no_date_range_matches_any_date():
+    assert matches_user(_tee(SAT, "07:30"), _date_user()) is True
+
+
+def test_date_range_is_endpoint_inclusive():
+    assert matches_user(_tee(SAT, "07:30"), _date_user(str(SAT), str(SAT))) is True
+
+
+def test_blank_date_strings_treated_as_open_ended():
+    # Web form submits "" for blank date inputs.
+    assert matches_user(_tee(SAT, "07:30"), _date_user("", "")) is True
+
+
 def test_second_preference_block_applies():
     assert matches_user(_tee(WED, "16:00"), _user()) is True
     assert matches_user(_tee(WED, "07:30"), _user()) is False  # wrong window for Wed

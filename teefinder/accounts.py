@@ -77,6 +77,8 @@ def _preferences_to_json(preferences: list[Preference]) -> str:
                     {"start": tr.start.strftime("%H:%M"), "end": tr.end.strftime("%H:%M")}
                     for tr in pref.time_ranges
                 ],
+                "start_date": pref.start_date.isoformat() if pref.start_date else None,
+                "end_date": pref.end_date.isoformat() if pref.end_date else None,
             }
         )
     return json.dumps(out)
