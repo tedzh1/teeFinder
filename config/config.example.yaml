@@ -86,6 +86,56 @@ clubs:
     options:
       booking_resource_id: 3000000
 
+  # This club's url has no resource id; it's supplied via options instead.
+  - id: coast
+    name: "Coast Golf Club"
+    platform: miclub
+    url: "https://www.coastgolf.com.au/guests/bookings/ViewPublicCalendar.msp"
+    options:
+      booking_resource_id: 3000000
+
+  - id: longreef
+    name: "Long Reef Golf Club"
+    platform: miclub
+    url: "https://longreef.miclub.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  - id: monavale
+    name: "Mona Vale Golf Club"
+    platform: miclub
+    url: "https://www.mvgc.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  - id: balgowlah
+    name: "Balgowlah Golf Club"
+    platform: miclub
+    url: "https://www.balgowlahgolfclub.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  - id: chatswood
+    name: "Chatswood Golf Club"
+    platform: miclub
+    url: "https://chatswood.miclub.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  - id: carnarvon
+    name: "Carnarvon Golf Club"
+    platform: miclub
+    url: "https://carnarvon.miclub.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  - id: stonecutters
+    name: "Stonecutters Ridge Golf Club"
+    platform: miclub
+    url: "https://www.stonecuttersgc.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
   # An offline example for local testing — the `fixture` scraper reads tee
   # times from a local JSON file instead of the network.
   - id: demo
