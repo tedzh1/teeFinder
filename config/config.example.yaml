@@ -3,12 +3,14 @@
 
 global:
   # How often the daemon scrapes (also used as the Task Scheduler/cron cadence).
-  scrape_interval_minutes: 15
+  scrape_interval_minutes: 30
   # Club-local timezone; tee time hours are interpreted in this zone.
   timezone: Australia/Sydney
   # How far ahead to look. MiClub sites list tee times months out, so this
   # caps the scrape depth instead of chasing every future day.
   lookahead_weeks: 12
+  # How many clubs to scrape at once (network-bound, so this speeds up a cycle).
+  scrape_concurrency: 6
   # SQLite database file (created automatically).
   database_path: ./data/teefinder.db
 

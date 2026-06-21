@@ -43,6 +43,9 @@ class GlobalConfig(BaseModel):
     # this caps the scrape depth (e.g. 12 weeks) rather than chasing every day.
     lookahead_weeks: int = Field(default=12, gt=0)
     database_path: Path = Path("./data/teefinder.db")
+    # How many clubs to scrape concurrently. Network I/O is the bottleneck, so
+    # this parallelises the slow part; keep it modest to stay polite to sites.
+    scrape_concurrency: int = Field(default=6, gt=0)
 
     @property
     def lookahead_days(self) -> int:

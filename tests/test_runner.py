@@ -146,3 +146,51 @@ def test_run_cycle_reads_users_from_database(tmp_path):
         summary = run_cycle(cfg, storage, notifier)  # users loaded from DB
     assert summary["emails_sent"] == 1
     assert notifier.sent[0][0] == "dbuser@example.com"
+
+
+def test_multiple_clubs_scraped_concurrently(tmp_path):
+    """All clubs are scraped (in parallel) and diffed independently."""
+    db = tmp_path / "tf.db"
+    fa, fb, fc = (tmp_path / f"{c}.json" for c in "abc")
+    cfg = Config.model_validate(
+        {
+            "global": {
+                "scrape_interval_minutes": 5,
+                "lookahead_weeks": 520,
+                "scrape_concurrency": 3,
+                "database_path": str(db),
+            },
+            "email": {"username": "a@b.com", "from_address": "a@b.com"},
+            "clubs": [
+                {"id": "a", "name": "A", "platform": "fixture", "url": str(fa)},
+                {"id": "b", "name": "B", "platform": "fixture", "url": str(fb)},
+                {"id": "c", "name": "C", "platform": "fixture", "url": str(fc)},
+            ],
+        }
+    )
+    user = UserConfig.model_validate({
+        "name": "Ted", "email": "ted@example.com",
+        "preferences": [{"days": ["Saturday"], "time_ranges": [{"start": "06:00", "end": "10:00"}]}],
+    })  # subscribed to all clubs
+
+    # Baseline for all three clubs.
+    for f in (fa, fb, fc):
+        _write_slots(f, [{"date": "2026-06-27", "time": "07:30", "players_available": 2}])
+    with Storage(db) as storage:
+        summary = run_cycle(cfg, storage, RecordingNotifier(), users=[user])
+    assert summary["clubs_scraped"] == 3
+    assert summary["new_availabilities"] == 0  # baseline
+
+    # A new slot opens at clubs A and C only.
+    for f in (fa, fc):
+        _write_slots(f, [
+            {"date": "2026-06-27", "time": "07:30", "players_available": 2},
+            {"date": "2026-06-27", "time": "08:10", "players_available": 4},
+        ])
+    notifier = RecordingNotifier()
+    with Storage(db) as storage:
+        summary = run_cycle(cfg, storage, notifier, users=[user])
+    assert summary["new_availabilities"] == 2  # one new slot at A, one at C
+    assert summary["emails_sent"] == 1          # single digest covering both
+    body = notifier.sent[0][2]
+    assert body.count("08:10") == 2             # both clubs' new slots in the email

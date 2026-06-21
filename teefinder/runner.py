@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from teefinder.accounts import UserStore
-from teefinder.config import Config, UserConfig
+from teefinder.config import ClubConfig, Config, UserConfig
 from teefinder.diff import new_availabilities
 from teefinder.matching import matches_for_user
 from teefinder.models import Snapshot, TeeTime
@@ -42,14 +43,17 @@ def run_cycle(
         with UserStore(config.global_.database_path) as user_store:
             users = user_store.list_active()
 
+    # Phase 1: scrape all clubs concurrently (network I/O is the bottleneck).
+    scraped = _scrape_all(config, clubs)
+
+    # Phase 2: persist + diff sequentially in club order (single DB connection,
+    # deterministic results). Fast compared to the network phase.
     all_new: list[TeeTime] = []
     for club in clubs:
-        try:
-            new_for_club = _process_club(config, storage, club.id)
-        except Exception:  # one bad club shouldn't kill the whole cycle
-            logger.exception("Failed to scrape club %s", club.id)
+        tee_times = scraped.get(club.id)
+        if tee_times is None:  # scrape failed for this club; already logged
             continue
-        all_new.extend(new_for_club)
+        all_new.extend(_save_and_diff(storage, club, tee_times))
 
     emails_sent = _alert_users(config, storage, notifier, all_new, users)
 
@@ -62,12 +66,35 @@ def run_cycle(
     return summary
 
 
-def _process_club(config: Config, storage: Storage, club_id: str) -> list[TeeTime]:
-    club = config.club(club_id)
+def _scrape_all(config: Config, clubs: list[ClubConfig]) -> dict[str, list[TeeTime] | None]:
+    """Scrape every club concurrently. Returns club_id -> tee times (or None).
+
+    Each scraper builds its own HTTP session, so this is thread-safe; the DB is
+    not touched here. One club's failure doesn't affect the others.
+    """
+    if not clubs:
+        return {}
+    workers = min(config.global_.scrape_concurrency, len(clubs))
+    results: dict[str, list[TeeTime] | None] = {}
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(_scrape_club, config, club): club for club in clubs}
+        for future in futures:
+            club = futures[future]
+            try:
+                results[club.id] = future.result()
+            except Exception:  # one bad club shouldn't kill the whole cycle
+                logger.exception("Failed to scrape club %s", club.id)
+                results[club.id] = None
+    return results
+
+
+def _scrape_club(config: Config, club: ClubConfig) -> list[TeeTime]:
     scraper = build_scraper(club)
     logger.info("Scraping %s (%s)...", club.name, club.platform)
+    return scraper.scrape(config.global_.lookahead_days)
 
-    tee_times = scraper.scrape(config.global_.lookahead_days)
+
+def _save_and_diff(storage: Storage, club: ClubConfig, tee_times: list[TeeTime]) -> list[TeeTime]:
     snapshot = Snapshot(
         club_id=club.id,
         scraped_at=dt.datetime.now(dt.timezone.utc),
