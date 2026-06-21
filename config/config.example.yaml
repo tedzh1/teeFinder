@@ -136,6 +136,34 @@ clubs:
     options:
       booking_resource_id: 3000000
 
+  - id: warringah
+    name: "Warringah Golf Club"
+    platform: miclub
+    url: "https://warringah.miclub.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  - id: twincreeks
+    name: "Twin Creeks Golf Club"
+    platform: miclub
+    url: "https://www.twincreeksgolf.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  - id: bankstown
+    name: "Bankstown Golf Club"
+    platform: miclub
+    url: "https://www.bankstowngolf.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
+  - id: bexley
+    name: "Bexley Golf Club"
+    platform: miclub
+    url: "https://www.bexleygolf.com.au/guests/bookings/ViewPublicCalendar.msp?booking_resource_id=3000000"
+    options:
+      booking_resource_id: 3000000
+
   # An offline example for local testing — the `fixture` scraper reads tee
   # times from a local JSON file instead of the network.
   - id: demo
