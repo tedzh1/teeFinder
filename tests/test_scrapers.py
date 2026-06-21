@@ -33,6 +33,8 @@ def test_fixture_scraper_reads_slots():
     assert len(tees) == 3
     assert tees[0].time == dt.time(7, 30)
     assert tees[0].players_available == 2
+    assert tees[0].title == "18 Holes"
+    assert tees[2].title == "9 Holes"
     assert all(t.club_id == "demo" for t in tees)
 
 
@@ -74,7 +76,7 @@ def test_miclub_parse_timesheet_counts_available_cells():
     html = (FIXTURES / "miclub_timesheet.html").read_text(encoding="utf-8")
     date = dt.date(2026, 6, 22)
     tees = MiClubScraper(_MICLUB_CLUB).parse_timesheet(
-        html, date, booking_url="https://book", price="$70.00"
+        html, date, booking_url="https://book", price="$70.00", title="18 Holes"
     )
     by_time = {t.time.strftime("%H:%M"): t for t in tees}
 
@@ -84,8 +86,16 @@ def test_miclub_parse_timesheet_counts_available_cells():
     # Every returned slot has at least one open spot, capped at the 4 player cells.
     assert tees and all(1 <= t.players_available <= 4 for t in tees)
     assert by_time["10:46"].price == "$70.00"
+    assert by_time["10:46"].title == "18 Holes"
     assert by_time["10:46"].booking_url == "https://book"
     assert by_time["10:46"].date == date
+
+
+def test_miclub_parse_fee_group_names():
+    html = (FIXTURES / "miclub_calendar.html").read_text(encoding="utf-8")
+    names = MiClubScraper(_MICLUB_CLUB).parse_fee_group_names(html)
+    assert names["1510657214"] == "18 Holes"
+    assert names["1510703764"] == "9 HOLES"
 
 
 def _calendar_html(date_str, fee_groups):
@@ -140,3 +150,48 @@ def test_miclub_merges_sessions_across_fee_groups(monkeypatch):
     assert set(tees) == {"09:00", "13:30"}      # both sessions merged
     assert tees["09:00"].players_available == 3  # max spots across fee groups wins
     assert tees["13:30"].players_available == 2
+
+
+def _calendar_html_named(date_str, groups):
+    # groups: list of (fee_group_id, price, name). Each is a feeGroupRow (name)
+    # containing one available cell (redirect) — mirrors the real calendar.
+    rows = "".join(
+        f'<div class="row feeGroupRow feeGroupId-{fg}">'
+        f'<div class="row-heading"><h3>{name}</h3></div>'
+        f'<div class="cell" onclick="redirectToTimesheet(\'{fg}\',\'{date_str}\');">'
+        f'<p class="price">{price}</p></div></div>'
+        for fg, price, name in groups
+    )
+    return f"<html><body>{rows}</body></html>"
+
+
+def test_miclub_distinct_titles_at_same_time_are_both_surfaced(monkeypatch):
+    """Cart vs non-cart on the same tee time are different products -> keep both,
+    each tagged with its fee-group title."""
+    club = ClubConfig(
+        id="twincreeks", name="Twin Creeks", platform="miclub",
+        url="https://tc.example.com/guests/bookings/ViewPublicCalendar.msp",
+        options={"booking_resource_id": "3000000"},
+    )
+    scraper = MiClubScraper(club)
+    target = (dt.date.today() + dt.timedelta(days=3)).isoformat()
+    timesheets = {
+        "111": _timesheet_html([("07:00 am", 4, 0)]),   # 18 Holes
+        "222": _timesheet_html([("07:00 am", 2, 2)]),   # 18 Holes + Cart
+    }
+
+    def fake_get(self, session, url, params):
+        if "feeGroupId" in params:
+            return timesheets[params["feeGroupId"]]
+        return _calendar_html_named(
+            target, [("111", "$65", "18 Holes"), ("222", "$95", "18 Holes + Cart")]
+        )
+
+    monkeypatch.setattr(MiClubScraper, "_get", fake_get)
+    tees = scraper.scrape(lookahead_days=14)
+
+    # Same 07:00 time, but two distinct titled offerings -> both present.
+    assert len(tees) == 2
+    by_title = {t.title: t for t in tees}
+    assert set(by_title) == {"18 Holes", "18 Holes + Cart"}
+    assert all(t.time == dt.time(7, 0) for t in tees)

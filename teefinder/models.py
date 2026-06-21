@@ -31,6 +31,10 @@ class TeeTime:
     players_available: int | None = None
     price: str | None = None
     booking_url: str | None = None
+    # What the booking is, supplied per-connector (e.g. MiClub fee-group name:
+    # "18 Holes", "9 Holes", "18 Holes + Cart"). Descriptive only — NOT part of
+    # the fingerprint, so changing its wording never re-triggers alerts.
+    title: str | None = None
     fingerprint: str = field(default="")
 
     def __post_init__(self) -> None:

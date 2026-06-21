@@ -32,7 +32,8 @@ def client(tmp_path):
             scraped_at=dt.datetime(2026, 6, 20, tzinfo=dt.timezone.utc),
             tee_times=[
                 TeeTime(club_id="demo", date=SAT, time=dt.time(7, 30),
-                        players_available=3, price="$45", booking_url="https://book/1"),
+                        players_available=3, price="$45", title="18 Holes",
+                        booking_url="https://book/1"),
                 TeeTime(club_id="demo", date=SAT, time=dt.time(14, 0),  # afternoon, won't match
                         players_available=3),
             ],
@@ -106,6 +107,7 @@ def test_preferences_drive_dashboard_matches(client):
     r = client.get("/dashboard")
     assert "07:30" in r.text
     assert "Demo Club" in r.text
+    assert "18 Holes" in r.text          # booking title is shown
     assert "14:00" not in r.text
     assert "https://book/1" in r.text
 

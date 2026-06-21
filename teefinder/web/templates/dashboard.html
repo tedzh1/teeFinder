@@ -19,7 +19,7 @@
   <h2>{{ club_name }}</h2>
   <table class="slots">
     <thead>
-      <tr><th>Day</th><th>Date</th><th>Time</th><th>Spots</th><th>Price</th><th></th></tr>
+      <tr><th>Day</th><th>Date</th><th>Time</th><th>Booking</th><th>Spots</th><th>Price</th><th></th></tr>
     </thead>
     <tbody>
       {% for s in slots %}
@@ -27,6 +27,7 @@
         <td>{{ day_names[s.weekday] }}</td>
         <td>{{ s.date }}</td>
         <td>{{ s.time.strftime('%H:%M') }}</td>
+        <td>{{ s.title or '—' }}</td>
         <td>{{ s.players_available if s.players_available is not none else '—' }}</td>
         <td>{{ s.price or '—' }}</td>
         <td>{% if s.booking_url %}<a class="book" href="{{ s.booking_url }}" target="_blank" rel="noopener">Book</a>{% endif %}</td>

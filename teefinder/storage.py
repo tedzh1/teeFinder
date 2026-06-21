@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS tee_times (
     players_available  INTEGER,
     price              TEXT,
     booking_url        TEXT,
+    title              TEXT,
     fingerprint        TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_tee_times_snapshot ON tee_times(snapshot_id);
@@ -54,6 +55,7 @@ def _row_to_teetime(row: sqlite3.Row) -> TeeTime:
         players_available=row["players_available"],
         price=row["price"],
         booking_url=row["booking_url"],
+        title=row["title"],
         fingerprint=row["fingerprint"],
     )
 
@@ -75,7 +77,14 @@ class Storage:
         # Wait up to 5s for a lock instead of erroring (web + scraper share the file).
         self.conn.execute("PRAGMA busy_timeout = 5000")
         self.conn.executescript(_SCHEMA)
+        self._migrate()
         self.conn.commit()
+
+    def _migrate(self) -> None:
+        """Lightweight, idempotent migrations for pre-existing databases."""
+        cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(tee_times)")}
+        if "title" not in cols:  # added after the initial release
+            self.conn.execute("ALTER TABLE tee_times ADD COLUMN title TEXT")
 
     def close(self) -> None:
         self.conn.close()
@@ -99,8 +108,8 @@ class Storage:
             """
             INSERT INTO tee_times
                 (snapshot_id, club_id, date, time, players_available,
-                 price, booking_url, fingerprint)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 price, booking_url, title, fingerprint)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -111,6 +120,7 @@ class Storage:
                     t.players_available,
                     t.price,
                     t.booking_url,
+                    t.title,
                     t.fingerprint,
                 )
                 for t in snapshot.tee_times

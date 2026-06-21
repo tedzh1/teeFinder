@@ -47,6 +47,7 @@ class FixtureScraper(BaseScraper):
                     players_available=entry.get("players_available"),
                     price=entry.get("price"),
                     booking_url=entry.get("booking_url"),
+                    title=entry.get("title"),
                 )
             )
         return tee_times

@@ -29,6 +29,8 @@ def _club_name_lookup(club_names: dict[str, str], club_id: str) -> str:
 def _format_slot(tee: TeeTime) -> str:
     day = _DAY_NAMES[tee.weekday]
     parts = [f"{day} {tee.date.isoformat()} at {tee.time.strftime('%H:%M')}"]
+    if tee.title:
+        parts.append(tee.title)
     if tee.players_available is not None:
         parts.append(f"{tee.players_available} spot(s)")
     if tee.price:
@@ -87,6 +89,8 @@ def build_digest(
 def _html_slot(tee: TeeTime) -> str:
     day = _DAY_NAMES[tee.weekday]
     bits = [f"<b>{day} {tee.date.isoformat()}</b> at <b>{tee.time.strftime('%H:%M')}</b>"]
+    if tee.title:
+        bits.append(tee.title)
     if tee.players_available is not None:
         bits.append(f"{tee.players_available} spot(s)")
     if tee.price:

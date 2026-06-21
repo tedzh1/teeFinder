@@ -70,8 +70,10 @@ class MiClubScraper(BaseScraper):
         today = dt.date.today()
         horizon = today + dt.timedelta(days=lookahead_days)
 
-        # Phase 1: page the calendar -> available (date, feeGroup) cells + price.
+        # Phase 1: page the calendar -> available (date, feeGroup) cells + price,
+        # plus the fee-group display names (the title shown to users).
         available: dict[tuple[dt.date, str], str | None] = {}
+        fee_group_names: dict[str, str] = {}
         cursor = today
         # +2 pages of slack so the horizon's final partial week is covered.
         for _ in range((lookahead_days // self.CALENDAR_DAYS) + 2):
@@ -82,6 +84,7 @@ class MiClubScraper(BaseScraper):
                 "selectedDate": cursor.isoformat(),
             })
             if html is not None:
+                fee_group_names.update(self.parse_fee_group_names(html))
                 for date, fee_group_id, price in self.parse_calendar(html):
                     if today <= date <= horizon and (not fee_filter or fee_group_id in fee_filter):
                         available[(date, fee_group_id)] = price
@@ -93,7 +96,10 @@ class MiClubScraper(BaseScraper):
         )
 
         # Phase 2: fetch the timesheet for each available day; parse open slots.
-        tee_by_fp: dict[str, TeeTime] = {}
+        # Key on (time, title) so distinct fee-group offerings (e.g. "18 Holes"
+        # vs "18 Holes + Cart") at the same time are both surfaced, while a truly
+        # identical listing keeps the one with the most open spots.
+        tee_by_key: dict[tuple[str, str | None], TeeTime] = {}
         for (date, fee_group_id), price in sorted(available.items()):
             html = self._get(session, timesheet_url, {
                 "bookingResourceId": resource_id,
@@ -106,14 +112,14 @@ class MiClubScraper(BaseScraper):
                 f"{timesheet_url}?bookingResourceId={resource_id}"
                 f"&selectedDate={date.isoformat()}&feeGroupId={fee_group_id}"
             )
-            for tee in self.parse_timesheet(html, date, booking_url, price):
-                # The same time can appear under multiple fee groups; keep the
-                # one reporting the most open spots.
-                existing = tee_by_fp.get(tee.fingerprint)
+            title = fee_group_names.get(fee_group_id)
+            for tee in self.parse_timesheet(html, date, booking_url, price, title):
+                key = (tee.fingerprint, tee.title)
+                existing = tee_by_key.get(key)
                 if existing is None or (tee.players_available or 0) > (existing.players_available or 0):
-                    tee_by_fp[tee.fingerprint] = tee
+                    tee_by_key[key] = tee
 
-        return list(tee_by_fp.values())
+        return list(tee_by_key.values())
 
     # -- parsing (network-free, unit-tested against saved fixtures) ---------
 
@@ -135,12 +141,36 @@ class MiClubScraper(BaseScraper):
             out.append((dt.date.fromisoformat(date_str), fee_group_id, price))
         return out
 
+    def parse_fee_group_names(self, html: str) -> dict[str, str]:
+        """Map ``feeGroupId -> display name`` from a calendar page.
+
+        Each fee group is a ``div.feeGroupRow`` (class carries ``feeGroupId-<id>``)
+        with a ``.row-heading h3`` title — e.g. "18 Holes", "9 Holes",
+        "18 Holes + Cart (2 Players)". This is MiClub's "common place" for titles.
+        """
+        soup = BeautifulSoup(html, "lxml")
+        names: dict[str, str] = {}
+        for row in soup.select("div.feeGroupRow"):
+            m = re.search(r"feeGroupId-(\d+)", " ".join(row.get("class", [])))
+            heading = row.select_one(".row-heading h3")
+            if m and heading:
+                title = heading.get_text(" ", strip=True)
+                if title:
+                    names[m.group(1)] = title
+        return names
+
     def parse_timesheet(
-        self, html: str, date: dt.date, booking_url: str | None, price: str | None
+        self,
+        html: str,
+        date: dt.date,
+        booking_url: str | None,
+        price: str | None,
+        title: str | None = None,
     ) -> list[TeeTime]:
         """Open tee times from one day's timesheet.
 
         Spots open = number of ``cell-available`` cells in the time's row.
+        ``title`` is the fee-group name describing what the booking is.
         """
         soup = BeautifulSoup(html, "lxml")
         results: list[TeeTime] = []
@@ -162,6 +192,7 @@ class MiClubScraper(BaseScraper):
                     players_available=spots,
                     price=price,
                     booking_url=booking_url,
+                    title=title,
                 )
             )
         return results
